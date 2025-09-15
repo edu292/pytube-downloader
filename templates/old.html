@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyTube Downloader</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"> <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js" integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q" crossorigin="anonymous" defer></script>
+
+    <style>
+        /* CSS variables for easy theming and consistency */
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border-color: rgba(255, 255, 255, 0.2);
+            --glass-blur: 12px;
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+            --brand-primary-accent: #6a11cb;
+            --brand-secondary-accent: #fff;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: var(--brand-secondary-accent);
+        }
+
+        /* Core glassmorphism style utility class */
+        .glass-container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--glass-border-color);
+            box-shadow: var(--glass-shadow);
+        }
+
+        /* Custom styles for form controls to maintain the glass feel */
+        .form-control.bg-glass, .input-group-text.bg-glass {
+            background-color: var(--glass-bg) !important;
+            border-color: var(--glass-border-color) !important;
+        }
+
+        .form-control.bg-glass:focus {
+            background-color: rgba(255, 255, 255, 0.2) !important;
+            border-color: rgba(255, 255, 255, 0.3) !important;
+            box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.2);
+        }
+
+        /* Custom button variant for primary actions.
+           Leverages Bootstrap's CSS variables for customization. */
+        .btn-download {
+            --bs-btn-bg: var(--brand-secondary-accent);
+            --bs-btn-color: var(--brand-primary-accent);
+            --bs-btn-hover-bg: #f0f0f0;
+            --bs-btn-hover-color: var(--brand-primary-accent);
+            --bs-btn-font-weight: 600;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Style the dropdown menu with the glass effect.
+           data-bs-theme="dark" handles the text color automatically. */
+        .dropdown-menu {
+            --bs-dropdown-bg: var(--glass-bg);
+            --bs-dropdown-border-color: var(--glass-border-color);
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        /* Custom styles for the video thumbnail to ensure proper aspect ratio */
+        .video-thumbnail {
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+            border: 1px solid var(--glass-border-color);
+        }
+    </style>
+</head>
+<body class="d-flex flex-column align-items-center min-vh-100 py-4">
+    <div class="container" style="max-width: 1000px;">
+        <header>
+            <nav class="navbar glass-container p-3 rounded-4">
+                <div class="container-fluid p-0">
+                    <a class="navbar-brand fw-bold" href="#">
+                        <i class="bi bi-youtube me-2"></i>
+                        PyTube Downloader
+                    </a>
+
+                    <form id="searchForm" class="d-flex flex-grow-1 ms-md-4" role="search">
+                        <label for="videoUrlInput" class="visually-hidden">YouTube Video URL</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-glass"><i class="bi bi-link-45deg"></i></span>
+                            <input id="videoUrlInput" class="form-control bg-glass" type="search" placeholder="Paste YouTube URL..." aria-label="YouTube Video URL" name="url">
+                            <button class="btn btn-download d-flex align-items-center" type="submit">
+                                <i class="bi bi-search"></i>
+                                <span class="d-none d-md-inline ms-2">Search</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </nav>
+        </header>
+
+        {% if video %}
+            <main id="downloadCard" class="mt-4 glass-container p-4 rounded-4">
+                <div class="row g-4">
+                    <div class="col-md-5 d-flex align-items-center">
+                        <img src="{{ video.thumbnail_url }}"
+                            onerror="this.src='https://placehold.co/400x225/cccccc/ffffff?text=Error';"
+                            alt="Video Thumbnail" class="video-thumbnail img-fluid rounded-3">
+                    </div>
+                    <div class="col-md-7 d-flex flex-column">
+                        <div class="flex-grow-1 pt-3">
+                            <h2 class="h4 fw-semibold">{{ video.title }}</h2>
+                        </div>
+                        <div class="d-flex flex-column flex-sm-row gap-2 mt-auto">
+                            <div class="dropdown flex-grow-1">
+                                <button id="formatSelectorBtn" class="btn btn-light w-100" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <i class="bi bi-gear-fill me-2"></i>
+                                    <span>Select Format</span>
+                                </button>
+                                <div class="dropdown-menu p-2 w-100 rounded-3">
+                                    <ul class="nav nav-pills nav-fill mb-2" id="formatTabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="video-tab" data-bs-toggle="tab" data-bs-target="#video-pane" type="button" role="tab" aria-controls="video-pane" aria-selected="true">Video</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="audio-tab" data-bs-toggle="tab" data-bs-target="#audio-pane" type="button" role="tab" aria-controls="audio-pane" aria-selected="false">Audio</button>
+                                        </li>
+                                    </ul>
+
+                                    <div class="tab-content" id="formatTabsContent">
+                                        <div class="tab-pane fade show active" id="video-pane" role="tabpanel" aria-labelledby="video-tab">
+                                            <ul class="list-unstyled mb-0" style="max-height: 200px; overflow-y: auto;">
+                                                {% for stream in video.streams.video %}
+                                                    <li>
+                                                        <a class="dropdown-item rounded-2 format-option" href="#" data-url="/download/?stream-id={{ loop.index0 }}&type=video">
+                                                            <i class="bi bi-camera-reels-fill me-2 text-white-50"></i>
+                                                            {{ stream.resolution }}p{% if stream.fps != 30 and stream.fps != 24 %}{{ stream.fps }}{% endif %} ({{ stream.ext }}) - <span class="text-white-50">{{ (stream.filesize / (1024 * 1024)) | round(2) }} MB</span>
+                                                        </a>
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+
+                                        <div class="tab-pane fade" id="audio-pane" role="tabpanel" aria-labelledby="audio-tab">
+                                            <ul class="list-unstyled mb-0" style="max-height: 200px; overflow-y: auto;">
+                                                {% for stream in video.streams.audio %}
+                                                    <li>
+                                                        <a class="dropdown-item rounded-2 format-option" href="#" data-url="/download/?stream-id={{ loop.index0 }}%type=audio">
+                                                            <i class="bi bi-music-note-beamed me-2 text-white-50"></i>
+                                                            {{ stream.abr }}kbps ({{ stream.ext }}) - <span class="text-white-50">{{ (stream.filesize / (1024 * 1024)) | round(2) }} MB</span>
+                                                        </a>
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <a id="confirmDownloadBtn" class="btn btn-download disabled" type="button">
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                                Confirm Download
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        {% endif %}
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const formatSelectorBtn = document.getElementById('formatSelectorBtn');
+            const confirmDownloadBtn = document.getElementById('confirmDownloadBtn');
+            const formatOptions = document.querySelectorAll('.format-option');
+
+            const buttonTextSpan = formatSelectorBtn.querySelector('span');
+
+            formatOptions.forEach(option => {
+                option.addEventListener('click', function(event) {
+                    event.preventDefault();
+
+                    const selectedUrl = this.dataset.url;
+
+                    buttonTextSpan.textContent = this.innerText;
+
+                    confirmDownloadBtn.setAttribute('href', selectedUrl);
+                    confirmDownloadBtn.classList.remove('disabled')
+
+                    const dropdown = bootstrap.Dropdown.getInstance(formatSelectorBtn);
+                    if (dropdown) {
+                        dropdown.hide();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

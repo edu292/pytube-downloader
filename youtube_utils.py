@@ -1,5 +1,8 @@
 import yt_dlp
-import subprocess
+import os.path
+
+TEMP_FOLDER = 'temp'
+OUTPUT_TEMPLATE = os.path.join(TEMP_FOLDER, '%(title)s.%(ext)s')
 
 
 def fetch_metadata(video_url):
@@ -47,6 +50,7 @@ def filter_and_format_streams(metadata):
         elif stream.get('acodec') != 'none' and stream.get('vcodec') == 'none':
             if stream['format_id'].endswith('-drc'):
                 continue
+
             stream_info = {
                 'id': stream['format_id'],
                 'ext': stream.get('ext'),
@@ -63,7 +67,7 @@ def filter_and_format_streams(metadata):
         if index <= quality_threshold:
             audio_stream = audio_streams[0]
         else:
-            audio_stream = audio_streams[min(index-quality_threshold, len(audio_streams)-1)]
+            audio_stream = audio_streams[min(index - quality_threshold, len(audio_streams)-1)]
 
         stream['audio_stream_id'] = audio_stream['id']
         stream['filesize'] += audio_stream['filesize']
@@ -86,27 +90,42 @@ def get_video_data(video_url):
     return video_data
 
 
-def download_and_stream_video(video_url, video_stream_id=None, audio_stream_id=None):
+def get_download_info(url, video_stream_id, audio_stream_id):
+    with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+        total_download_size = 0
+        for stream in info['formats']:
+            if stream['format_id'] == video_stream_id:
+                video_ext = stream['ext']
+                total_download_size += stream.get('filesize', 0)
+            elif stream['format_id'] == audio_stream_id:
+                audio_ext = stream['ext']
+                total_download_size += stream.get('filesize', 0)
+
+        if video_stream_id:
+            info['ext'] = video_ext
+        else:
+            info['ext'] = audio_ext
+
+        filename = ydl.prepare_filename(info, outtmpl=OUTPUT_TEMPLATE)
+
+        return filename, total_download_size, info['ext']
+
+
+def download_stream(url, video_stream_id, audio_stream_id, progress_hook, extension):
     if video_stream_id and audio_stream_id:
         format_string = f'{video_stream_id}+{audio_stream_id}'
     else:
         format_string = audio_stream_id if audio_stream_id is not None else video_stream_id
 
-    command = [
-        'yt-dlp',
-        '-q',
-        '--no-warnings',
-        '-f', format_string,
-        video_url,
-        '-o', '-'
-    ]
+    ydl_options = {
+        'format': format_string,
+        'outtmpl': OUTPUT_TEMPLATE,
+        'quiet': True,
+        'progress_hooks': [progress_hook],
+        'merge_output_format': extension
+    }
 
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    while chunk := process.stdout.read(1024 * 128):
-        yield chunk
-
-    _, stderr = process.communicate()
-
-    if process.returncode != 0:
-        print(f"Error during yt-dlp execution: {stderr.decode('utf-8')}")
+    with yt_dlp.YoutubeDL(ydl_options) as ydl:
+        ydl.download([url])

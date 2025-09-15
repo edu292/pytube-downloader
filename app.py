@@ -1,7 +1,10 @@
-from flask import Flask, render_template, request, Response, stream_with_context
+from flask import Flask, render_template, request, send_file
+
 import youtube_utils as yt
+import tasks
 
 app = Flask(__name__)
+
 
 @app.route('/')
 def index():
@@ -15,17 +18,28 @@ def index():
 
 
 @app.route('/download/')
-def download():
+def start_download():
     url = request.args.get('url')
     video_stream_id = request.args.get('video-stream-id')
     audio_stream_id = request.args.get('audio-stream-id')
 
-    print(url)
-    print(video_stream_id)
-    print(audio_stream_id)
+    task = tasks.download_stream.delay(url, video_stream_id, audio_stream_id)
 
-    streamer = yt.download_and_stream_video(url, video_stream_id, audio_stream_id)
-    return Response(stream_with_context(streamer))
+    return {'taskId': task.id}
+
+
+@app.route('/download/<task_id>/status')
+def get_download_status(task_id):
+    status = tasks.get_download_status(task_id)
+
+    return status
+
+
+@app.route('/download/<task_id>')
+def download_file(task_id):
+    filepath = tasks.get_filepath(task_id)
+
+    return send_file(filepath, as_attachment=True)
 
 
 if __name__ == '__main__':

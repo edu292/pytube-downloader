@@ -13,8 +13,8 @@
 </head>
 <body>
     <div class="page-container">
-        <header class="page-header glass-container">
-            <a class="page-header__brand">
+        <header class="page-header panel glass-container">
+            <a class="page-header__brand" href="/">
                 <i class="bi-youtube"></i> PyTube Downloader
             </a>
             <form class="url-form">
@@ -30,16 +30,16 @@
         </header>
 
         {% if video %}
-        <main class="page-content glass-container">
+        <main class="page-content panel glass-container">
             <article class="video-card">
                 <section class="video-card__thumbnail">
-                    <img src="https://i.ytimg.com/vi_webp/6PkfO7jrCLk/maxresdefault.webp"
+                    <img src="{{ video.thumbnail_url }}"
                          onerror="this.src='https://placehold.co/400x225/cccccc/ffffff?text=Error';"
                          alt="Video Thumbnail" class="video-thumbnail">
                 </section>
                 <section class="video-card__body">
-                    <h2>🏁🏆 Crie seu portfólio do ZERO com HTML5 e CSS3 (Projeto Final) - @CursoemVideo HTML5 + CSS3</h2>
-                    <div class="video-card__actions">
+                    <h2>{{ video.title }}</h2>
+                    <div class="video-card__actions" id="dropdown-actions">
                         <div class="video-card__streams-dropdown dropdown-menu">
                             <button class="dropdown-menu__button button video-card__actions-button" id="streams-dropdown-button">
                                 <i class="bi-gear-fill"></i>
@@ -47,15 +47,15 @@
                             </button>
                             <div class="dropdown-menu__body hidden" id="streams-dropdown-body">
                                 <div class="dropdown-menu__tabs" id="streams-tab-selector">
-                                    <button class="dropdown-menu__tab-button active" data-target="video-pane">Video</button>
-                                    <button class="dropdown-menu__tab-button" data-target="audio-pane">Audio</button>
+                                    <button class="dropdown-menu__tab-button button active" data-target="video-pane">Video</button>
+                                    <button class="dropdown-menu__tab-button button" data-target="audio-pane">Audio</button>
                                 </div>
-                                <div class="dropdown-menu__pane">
+                                <div class="dropdown-menu__pane" id="streams-dropdown-pane">
                                     <div class="dropdown-menu__pane-content" id="video-pane">
                                         <ul>
                                             {% for stream in video.streams.video %}
                                             <li>
-                                                <button data-video-stream-id="{{ stream.id }}" data-audio-stream-id="{{ stream.audio_stream_id }}" data-stream-type="video">
+                                                <button class="button" data-video-stream-id="{{ stream.id }}" data-audio-stream-id="{{ stream.audio_stream_id }}" data-stream-type="video">
                                                     <i class="bi-camera-reels-fill"></i>
                                                     {{ stream.resolution }}p{% if stream.fps != 30 and stream.fps != 24 %}{{ stream.fps }}{% endif %} ({{ stream.ext }}) - <span>{{ (stream.filesize / (1024 * 1024)) | round(2) }} MB</span></button>
                                             </li>
@@ -66,7 +66,7 @@
                                         <ul>
                                             {% for stream in video.streams.audio %}
                                             <li>
-                                                <button data-video-stream-id="null" data-stream-id="{{ stream.id }}" data-stream-type="audio"><i class="bi bi-music-note-beamed me-2 text-white-50"></i>{{ stream.abr }}kbps ({{ stream.ext }}) - <span>{{ (stream.filesize / (1024 * 1024)) | round(2) }} MB</span></button>
+                                                <button class="button" data-video-stream-id="null" data-audio-stream-id="{{ stream.id }}"><i class="bi bi-music-note-beamed me-2 text-white-50"></i>{{ stream.abr }}kbps ({{ stream.ext }}) - <span>{{ (stream.filesize / (1024 * 1024)) | round(2) }} MB</span></button>
                                             </li>
                                             {% endfor %}
                                         </ul>
@@ -75,10 +75,13 @@
 
                             </div>
                         </div>
-                        <button class="video-card__actions-button button" id="confirm-download" disabled data-stream-type="null" data-stream-id="null" data-audio-stream-id="null">
+                        <button class="video-card__actions-button button" id="confirm-download" disabled data-video-stream-id="null" data-audio-stream-id="null">
                             <i class="bi-check-circle-fill"></i>
                             Confirm Download
                         </button>
+                    </div>
+                    <div class="hidden video-card__progress-bar" id="progress-bar">
+                        <div class="progress-bar__fill" id="progress-bar-fill"></div>
                     </div>
                 </section>
             </article>
@@ -86,14 +89,54 @@
         {% endif %}
     </div>
     <script>
+        class ProgressBarAnimator {
+            #frameId = null;
+            #currentPercent = 0;
+            #targetPercent = 0;
+            #domElement = null;
+
+            constructor(element) {
+                this.#domElement = element;
+            }
+
+            #animate = () => {
+                if (Math.abs(this.#targetPercent - this.#currentPercent) < 0.1) {
+                    this.#currentPercent = this.#targetPercent;
+                } else {
+                    this.#currentPercent += (this.#targetPercent - this.#currentPercent) * 0.02;
+                }
+
+                this.#domElement.style.width = `${this.#currentPercent}%`;
+
+                if (this.#currentPercent < this.#targetPercent) {
+                    this.#frameId = requestAnimationFrame(this.#animate);
+                } else {
+                    this.#frameId = null;
+                }
+            }
+
+            updateTarget(newTarget) {
+                this.#targetPercent = newTarget;
+
+                if (!this.#frameId) {
+                    this.#frameId = requestAnimationFrame(this.#animate);
+                }
+            }
+        }
+
         const dropdownMenuButton = document.getElementById('streams-dropdown-button');
         const dropdownMenuBody = document.getElementById('streams-dropdown-body');
         const dropdownTabs = document.getElementById('streams-tab-selector');
         const dropdownTabButtons = document.querySelectorAll('.dropdown-menu__tab-button');
         const dropdownPaneContents = document.querySelectorAll('.dropdown-menu__pane-content');
-        const confirmDownloadButton = document.getElementById('confirm-download')
+        const dropdownPane = document.getElementById('streams-dropdown-pane');
+        const dropdownActions = document.getElementById('dropdown-actions')
+        const confirmDownloadButton = document.getElementById('confirm-download');
         const urlParams = new URLSearchParams(window.location.search);
         const videoUrl = urlParams.get('url');
+        const progressBar = document.getElementById('progress-bar');
+        const progressBarFill = document.getElementById('progress-bar-fill');
+        const animator = new ProgressBarAnimator(progressBarFill);
 
         dropdownMenuButton.addEventListener('click', (evt) => {
             dropdownMenuBody.classList.toggle('hidden');
@@ -114,23 +157,26 @@
             })
             selectedPane.classList.remove('hidden');
 
-            selectedPane.addEventListener('click', (evt) => {
-                let selectedStreamButton = evt.target.closest("button");
-
-                dropdownMenuButton.textContent = selectedStreamButton.innerText;
-
-                confirmDownloadButton.removeAttribute('disabled')
-                confirmDownloadButton.classList.add('button')
-                confirmDownloadButton.classList.add('button--secondary')
-
-                confirmDownloadButton.dataset.videoStreamId = selectedStreamButton.dataset.videoStreamId;
-                confirmDownloadButton.dataset.audioStreamId = selectedStreamButton.dataset.audioStreamId;
-            });
-
             evt.stopPropagation()
         });
 
+        dropdownPane.addEventListener('click', (evt) => {
+            let selectedStreamButton = evt.target.closest("button");
+            dropdownMenuButton.textContent = selectedStreamButton.innerText;
+
+            confirmDownloadButton.removeAttribute('disabled');
+            confirmDownloadButton.classList.add('button');
+            confirmDownloadButton.classList.add('button--secondary');
+
+            confirmDownloadButton.dataset.videoStreamId = selectedStreamButton.dataset.videoStreamId;
+            confirmDownloadButton.dataset.audioStreamId = selectedStreamButton.dataset.audioStreamId;
+        });
+
         confirmDownloadButton.addEventListener('click', function () {
+            progressBar.classList.remove('hidden');
+            dropdownActions.classList.add('hidden');
+            progressBar.classList.add('progress-bar--indeterminate');
+
             const urlEndpoint = new URL('/download', window.location.origin);
             urlEndpoint.searchParams.append('url', videoUrl);
 
@@ -145,14 +191,47 @@
                 }
             }
 
-            console.log(urlEndpoint);
-            fetch(urlEndpoint)
+            scheduleWorker(urlEndpoint);
         });
 
         window.addEventListener('click', function () {
             dropdownMenuBody.classList.add('hidden');
         });
 
+
+        async function scheduleWorker(urlEndpoint) {
+            const response = await fetch(urlEndpoint);
+            const data = await response.json();
+            const taskId = data.taskId;
+
+            await pollStatus(taskId);
+        }
+
+
+        async function pollStatus(taskId) {
+            const response = await fetch(`/download/${taskId}/status`);
+            const data = await response.json();
+            console.log(data);
+
+            if (data.state === 'SUCCESS') {
+                animator.updateTarget(100);
+                window.location.assign(`download/${taskId}`);
+                setTimeout(() => {
+                    progressBar.classList.add('hidden');
+                    dropdownActions.classList.remove('hidden');
+                    progressBarFill.style.width = '0';
+                }, 800);
+            } else {
+                if (data.state === 'DOWNLOADING') {
+                    if (progressBar.classList.contains('progress-bar--indeterminate')) {
+                        progressBar.classList.remove('progress-bar--indeterminate');
+                    }
+                    animator.updateTarget(data.percentage);
+                }
+
+                setTimeout(() => pollStatus(taskId), 500);
+            }
+        }
     </script>
 </body>
 </html>
