@@ -53,6 +53,7 @@ O fluxo funciona da seguinte maneira:
 
   * Python 3.13
   * Redis (pode ser executado via Docker ou instalado localmente)
+  * Ffmpeg
   * Git
 
 ### Passos para Instalação
