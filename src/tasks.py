@@ -3,8 +3,8 @@ from celery.result import AsyncResult
 import youtube_utils as yt
 
 app = Celery('youtube-downloader',
-             broker_url='redis://localhost:6379/0',
-             backend='redis://localhost:6379/1')
+             broker_url='redis://redis:6379/0',
+             backend='redis://redis:6379/1')
 
 
 @app.task(bind=True)

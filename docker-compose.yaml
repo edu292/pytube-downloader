@@ -1,0 +1,25 @@
+x-base-app: &app-base
+  build: .
+  restart: unless-stopped
+  depends_on:
+    - redis
+
+services:
+  web:
+    <<: *app-base
+    ports:
+      - "80:5000"
+    command:
+      - "python"
+      - "app.py"
+
+  worker:
+    <<: *app-base
+    command:
+      - "celery"
+      - "-A"
+      - "tasks"
+      - "worker"
+
+  redis:
+    image: "redis:8-alpine"
