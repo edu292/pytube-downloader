@@ -22,7 +22,7 @@
     --color-text-muted: lightgray;
     --color-text-subtle: #c9c9c9;
     --color-text-dark: #303434;
-    --color-dropdown-bg: rgba(0, 0, 0, 0.4);
+    --color-dropdown-bg: rgba(0, 0, 0, 0.45);
     --color-dropdown-border: rgba(221, 221, 221, 0.44);
     --color-active-blue: #0d6efd;
     --color-bg-hover-dark: #1e1f22;
@@ -106,7 +106,7 @@ body {
     display: flex;
     flex-flow: column nowrap;
     max-width: 1000px;
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
     gap: var(--spacing-md);
     margin: auto;
 }
