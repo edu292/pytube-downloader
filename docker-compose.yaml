@@ -9,12 +9,16 @@ services:
     <<: *app-base
     ports:
       - "80:5000"
+    volumes:
+      - temp-vol:/app/temp
     command:
       - "python"
       - "app.py"
 
   worker:
     <<: *app-base
+    volumes:
+      - temp-vol:/app/temp
     command:
       - "celery"
       - "-A"
@@ -23,3 +27,6 @@ services:
 
   redis:
     image: "redis:8-alpine"
+
+volumes:
+  temp-vol:
