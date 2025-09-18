@@ -12,4 +12,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src .
 
-EXPOSE 5000
+EXPOSE 8000
