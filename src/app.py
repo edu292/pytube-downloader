@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, send_file
+from whitenoise import WhiteNoise
 
 import youtube_utils as yt
 import tasks
 
 app = Flask(__name__)
+app.wsgi_app = WhiteNoise(app.wsgi_app, root="static/")
 
 
 @app.route('/')

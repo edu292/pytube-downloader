@@ -8,12 +8,16 @@ services:
   web:
     <<: *app-base
     ports:
-      - "80:5000"
+      - "80:8000"
     volumes:
       - temp-vol:/app/temp
     command:
-      - "python"
-      - "app.py"
+      - "gunicorn"
+      - "--workers"
+      - "5"
+      - "--bind"
+      - "0.0.0.0:8000"
+      - "app:app"
 
   worker:
     <<: *app-base
