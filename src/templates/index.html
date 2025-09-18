@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    <script src="{{ url_for('static', filename='js/index.js') }}" defer></script>
 </head>
 <body>
     <div class="page-container">
@@ -39,7 +40,7 @@
                 </section>
                 <section class="video-card__body">
                     <h2>{{ video.title }}</h2>
-                    <div class="video-card__actions" id="dropdown-actions">
+                    <div class="video-card__actions" id="video-card-actions">
                         <div class="video-card__streams-dropdown dropdown-menu">
                             <button class="dropdown-menu__button button video-card__actions-button" id="streams-dropdown-button">
                                 <i class="bi-gear-fill"></i>
@@ -75,12 +76,12 @@
 
                             </div>
                         </div>
-                        <button class="video-card__actions-button button" id="confirm-download" disabled data-video-stream-id="null" data-audio-stream-id="null">
+                        <button class="video-card__actions-button button video-card__actions-button--confirm" id="confirm-download" disabled data-video-stream-id="null" data-audio-stream-id="null">
                             <i class="bi-check-circle-fill"></i>
                             Confirm Download
                         </button>
                     </div>
-                    <div class="hidden video-card__progress-bar" id="progress-bar">
+                    <div class="hidden video-card__progress-bar" id="progress-bar-body">
                         <div class="progress-bar__fill" id="progress-bar-fill"></div>
                     </div>
                 </section>
@@ -88,150 +89,5 @@
         </main>
         {% endif %}
     </div>
-    <script>
-        class ProgressBarAnimator {
-            #frameId = null;
-            #currentPercent = 0;
-            #targetPercent = 0;
-            #domElement = null;
-
-            constructor(element) {
-                this.#domElement = element;
-            }
-
-            #animate = () => {
-                if (Math.abs(this.#targetPercent - this.#currentPercent) < 0.1) {
-                    this.#currentPercent = this.#targetPercent;
-                } else {
-                    this.#currentPercent += (this.#targetPercent - this.#currentPercent) * 0.02;
-                }
-
-                this.#domElement.style.width = `${this.#currentPercent}%`;
-
-                if (this.#currentPercent < this.#targetPercent) {
-                    this.#frameId = requestAnimationFrame(this.#animate);
-                } else {
-                    this.#frameId = null;
-                }
-            }
-
-            updateTarget(newTarget) {
-                this.#targetPercent = newTarget;
-
-                if (!this.#frameId) {
-                    this.#frameId = requestAnimationFrame(this.#animate);
-                }
-            }
-        }
-
-        const dropdownMenuButton = document.getElementById('streams-dropdown-button');
-        const dropdownMenuBody = document.getElementById('streams-dropdown-body');
-        const dropdownTabs = document.getElementById('streams-tab-selector');
-        const dropdownTabButtons = document.querySelectorAll('.dropdown-menu__tab-button');
-        const dropdownPaneContents = document.querySelectorAll('.dropdown-menu__pane-content');
-        const dropdownPane = document.getElementById('streams-dropdown-pane');
-        const dropdownActions = document.getElementById('dropdown-actions')
-        const confirmDownloadButton = document.getElementById('confirm-download');
-        const urlParams = new URLSearchParams(window.location.search);
-        const videoUrl = urlParams.get('url');
-        const progressBar = document.getElementById('progress-bar');
-        const progressBarFill = document.getElementById('progress-bar-fill');
-        const animator = new ProgressBarAnimator(progressBarFill);
-
-        dropdownMenuButton.addEventListener('click', (evt) => {
-            dropdownMenuBody.classList.toggle('hidden');
-            evt.stopPropagation();
-        });
-
-        dropdownTabs.addEventListener('click', (evt) => {
-            let clickedButton = evt.target;
-            let selectedPane = document.getElementById(clickedButton.dataset.target);
-
-            dropdownTabButtons.forEach(button => {
-                button.classList.remove('active');
-            });
-            clickedButton.classList.add('active');
-
-            dropdownPaneContents.forEach(content => {
-                content.classList.add('hidden');
-            })
-            selectedPane.classList.remove('hidden');
-
-            evt.stopPropagation()
-        });
-
-        dropdownPane.addEventListener('click', (evt) => {
-            let selectedStreamButton = evt.target.closest("button");
-            dropdownMenuButton.textContent = selectedStreamButton.innerText;
-
-            confirmDownloadButton.removeAttribute('disabled');
-            confirmDownloadButton.classList.add('button');
-            confirmDownloadButton.classList.add('button--secondary');
-
-            confirmDownloadButton.dataset.videoStreamId = selectedStreamButton.dataset.videoStreamId;
-            confirmDownloadButton.dataset.audioStreamId = selectedStreamButton.dataset.audioStreamId;
-        });
-
-        confirmDownloadButton.addEventListener('click', function () {
-            progressBar.classList.remove('hidden');
-            dropdownActions.classList.add('hidden');
-            progressBar.classList.add('progress-bar--indeterminate');
-
-            const urlEndpoint = new URL('/download', window.location.origin);
-            urlEndpoint.searchParams.append('url', videoUrl);
-
-            const optionalParams = {
-                'video-stream-id': confirmDownloadButton.dataset.videoStreamId,
-                'audio-stream-id': confirmDownloadButton.dataset.audioStreamId,
-            };
-
-            for (const [key, value] of Object.entries(optionalParams)) {
-                if (value && value !== 'null') {
-                    urlEndpoint.searchParams.append(key, value);
-                }
-            }
-
-            scheduleWorker(urlEndpoint);
-        });
-
-        window.addEventListener('click', function () {
-            dropdownMenuBody.classList.add('hidden');
-        });
-
-
-        async function scheduleWorker(urlEndpoint) {
-            const response = await fetch(urlEndpoint);
-            const data = await response.json();
-            const taskId = data.taskId;
-
-            await pollStatus(taskId);
-        }
-
-
-        async function pollStatus(taskId) {
-            const response = await fetch(`/download/${taskId}/status`);
-            const data = await response.json();
-            console.log(data);
-
-            if (data.state === 'SUCCESS') {
-                animator.updateTarget(100);
-                window.location.assign(`download/${taskId}`);
-                setTimeout(() => {
-                    progressBar.classList.add('hidden');
-                    dropdownActions.classList.remove('hidden');
-                    progressBarFill.style.width = '0';
-                }, 800);
-            } else {
-                if (data.state === 'DOWNLOADING') {
-                    if (progressBar.classList.contains('progress-bar--indeterminate')) {
-                        progressBar.classList.remove('progress-bar--indeterminate');
-                    }
-                    animator.updateTarget(data.percentage);
-                }
-
-                setTimeout(() => pollStatus(taskId), 1000);
-            }
-        }
-    </script>
 </body>
 </html>
