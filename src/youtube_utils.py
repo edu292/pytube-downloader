@@ -3,33 +3,38 @@ import os.path
 
 TEMP_FOLDER = 'temp'
 OUTPUT_TEMPLATE = os.path.join(TEMP_FOLDER, '%(title)s.%(ext)s')
+STANDARD_FORMAT_NOTES = {'none', 'low', 'medium', 'high'}
 
 
 def fetch_metadata(video_url):
-    ydl_opts = {'quiet': True}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(video_url, download=False)
-            return info
-        except yt_dlp.DownloadError as e:
-            print(f"Error fetching video info: {e}")
-            return None
+    ydl_options = {'quiet': True}
+    with yt_dlp.YoutubeDL(ydl_options) as ydl:
+        info = ydl.extract_info(video_url, download=False)
+        return info
 
 
-def extract_title_and_thumbnail(metadata):
-    if not metadata:
-        return None, None
+def pair_audio_streams(video_streams, audio_streams):
+    previous_resolution = ''
+    max_audio_abr = False
+    audio_stream_index = -1
+    for video_stream in video_streams[1:]:
+        current_resolution = video_stream['resolution']
+        if not max_audio_abr and current_resolution != previous_resolution:
+            previous_resolution = current_resolution
+            audio_stream_index += 1
+            if audio_stream_index == len(audio_streams) - 1:
+                max_audio_abr = True
 
-    title = metadata.get('title')
-    thumbnail_url = metadata.get('thumbnail')
+        for audio_stream in audio_streams[audio_stream_index::-1]:
+            if audio_stream['ext'] != 'm4a' or video_stream['ext'] != 'webm':
+                video_stream['audio_stream_id'] = audio_stream['id']
+                video_stream['filesize'] += audio_stream['filesize']
+                break
 
-    return title, thumbnail_url
+    return video_streams
 
 
 def filter_and_format_streams(metadata):
-    if not metadata or 'formats' not in metadata:
-        return {}
-
     audio_streams = []
     video_streams = []
 
@@ -51,6 +56,11 @@ def filter_and_format_streams(metadata):
             if stream['format_id'].endswith('-drc'):
                 continue
 
+            format_note = stream.get('format_note', 'none')
+
+            if format_note not in STANDARD_FORMAT_NOTES and 'original' not in format_note:
+                continue
+
             stream_info = {
                 'id': stream['format_id'],
                 'ext': stream.get('ext'),
@@ -59,18 +69,10 @@ def filter_and_format_streams(metadata):
             }
             audio_streams.append(stream_info)
 
-    video_streams.sort(key=lambda s: s['resolution'], reverse=True)
-    audio_streams.sort(key=lambda s: s['abr'], reverse=True)
+    video_streams.sort(key=lambda s: s['resolution'])
+    audio_streams.sort(key=lambda s: s['abr'])
 
-    quality_threshold = len(video_streams) - len(audio_streams)
-    for index, stream in enumerate(video_streams, 1):
-        if index <= quality_threshold:
-            audio_stream = audio_streams[0]
-        else:
-            audio_stream = audio_streams[min(index - quality_threshold, len(audio_streams)-1)]
-
-        stream['audio_stream_id'] = audio_stream['id']
-        stream['filesize'] += audio_stream['filesize']
+    video_streams = pair_audio_streams(video_streams, audio_streams)
 
     return {'video': video_streams, 'audio': audio_streams}
 

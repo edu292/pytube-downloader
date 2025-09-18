@@ -14,14 +14,14 @@
 <body>
     <div class="page-container">
         <header class="page-header panel glass-container">
-            <a class="page-header__brand" href="/src/static">
+            <a class="page-header__brand" href="/">
                 <i class="bi-youtube"></i> PyTube Downloader
             </a>
             <form class="url-form">
                 <label for="url-input" class="hidden">Youtube Video Url</label>
                 <div class="url-form__input-group glass-container">
                     <i class="bi-link-45deg input-group__icon"></i>
-                    <input id="url-input" name="url" type="text" placeholder="Paste Youtube URL..." class="url-form__input">
+                    <input id="url-input" name="url" type="text" placeholder="Paste Youtube URL" class="url-form__input">
                 </div>
                 <button type="submit" class="url-form__button button button--secondary">
                     <i class="bi-search"></i> <span>Search</span>
@@ -53,7 +53,7 @@
                                 <div class="dropdown-menu__pane" id="streams-dropdown-pane">
                                     <div class="dropdown-menu__pane-content" id="video-pane">
                                         <ul>
-                                            {% for stream in video.streams.video %}
+                                            {% for stream in video.streams.video | reverse %}
                                             <li>
                                                 <button class="button" data-video-stream-id="{{ stream.id }}" data-audio-stream-id="{{ stream.audio_stream_id }}" data-stream-type="video">
                                                     <i class="bi-camera-reels-fill"></i>
@@ -64,7 +64,7 @@
                                     </div>
                                     <div class="dropdown-menu__pane-content hidden" id="audio-pane">
                                         <ul>
-                                            {% for stream in video.streams.audio %}
+                                            {% for stream in video.streams.audio | reverse %}
                                             <li>
                                                 <button class="button" data-video-stream-id="null" data-audio-stream-id="{{ stream.id }}"><i class="bi bi-music-note-beamed me-2 text-white-50"></i>{{ stream.abr }}kbps ({{ stream.ext }}) - <span>{{ (stream.filesize / (1024 * 1024)) | round(2) }} MB</span></button>
                                             </li>
