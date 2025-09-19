@@ -150,20 +150,20 @@ docker-compose down -v
 
 ```
 .
-├── docker-compose.yaml # Orquestra todos os serviços
-├── Dockerfile          # Define a imagem da aplicação Python
-├── requirements.txt    # Dependências Python
+├── docker-compose.yaml   # Orquestra todos os serviços
+├── Dockerfile            # Define a imagem da aplicação Python
+├── requirements.txt      # Dependências Python
 └── src
-    ├── app.py          # Servidor Flask (endpoints da API)
-    ├── tasks.py        # Tarefas do Celery (lógica de download)
-    ├── youtube_utils.py# Módulo de interação com yt-dlp
+    ├── app.py            # Servidor Flask (endpoints da API)
+    ├── tasks.py          # Tarefas do Celery (lógica de download)
+    ├── youtube_utils.py  # Módulo de interação com yt-dlp
     ├── static
     │   ├── css
-    │   │   └── style.css
+    │   │   └── style.css # Estilos e customização da página
     │   └── js
-    │       └── index.js
+    │       └── index.js  # Interatividade e comunicação com o servidor
     └── templates
-        └── index.html
+        └── index.html    # Código de estruturação da página principal
 ```
 
 -----
