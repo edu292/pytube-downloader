@@ -11,7 +11,7 @@ Para um **usuário**, é uma ferramenta simples e intuitiva: cole um link do You
 Mas em sua implementação, este projeto demonstra:
 * **Arquitetura Assíncrona:** A capacidade de projetar sistemas que não bloqueiam o usuário, melhorando drasticamente a experiência e permitindo que o backend escale de forma independente.
 * **Domínio de Frontend e Backend:** Uma solução completa, desde a estilização com CSS puro e interatividade com JavaScript vanilla até a orquestração de tarefas complexas no servidor com Python.
-* **Foco em Performance:** Uma arquitetura otimizada que delega tarefas para os serviços corretos, utilizando Nginx para I/O de arquivos e Gevent para alta concorrência.
+* **Foco em Performance:** Uma arquitetura otimizada que delega tarefas para os serviços corretos, utilizando Nginx para I/O de arquivos, Gevent para alta concorrência e **Server-Sent Events** para comunicação em tempo real.
 * **Práticas de DevOps:** O uso de **Docker** e **Docker Compose** para criar um ambiente de desenvolvimento e produção consistente, confiável e facilmente replicável com um único comando.
 
 -----
@@ -42,10 +42,34 @@ O fluxo funciona da seguinte maneira:
 3.  **Broker (Redis):** O Celery usa o Redis como uma fila de mensagens. A tarefa agendada é colocada nessa fila.
 4.  **Celery Worker:** Um processo separado (o *worker*) está constantemente monitorando a fila. Ele pega a tarefa e começa a executá-la (chama a função `download_stream` para baixar o vídeo).
 5.  **Atualização de Progresso:** Durante o download, o worker utiliza o método `self.update_state()` para publicar o progresso (ex: `{ 'state': 'DOWNLOADING', 'percentage': 42 }`) no *backend* de resultados do Celery (também Redis).
-6.  **Polling do Frontend:** Após receber o `taskId` (passo 2), o JavaScript começa a "perguntar" ao servidor sobre o status da tarefa a cada 1000ms, fazendo requisições ao endpoint `/download/<task_id>/status`.
-7.  **Status Check (Flask):** Esta rota consulta o backend de resultados do Celery e retorna o estado atual da tarefa para o frontend.
-8.  **UI Dinâmica:** O JavaScript recebe o status e atualiza a barra de progresso na tela, proporcionando feedback em tempo real ao usuário.
-9.  **Conclusão:** Quando o download termina, o worker atualiza o estado da tarefa para `SUCCESS` e armazena o caminho do arquivo final como resultado. Na próxima vez que o frontend perguntar, ele receberá o status de sucesso e redirecionará o usuário para o endpoint final de download, que delega a entrega do arquivo para o Nginx.
+6.  **Conexão SSE do Frontend:** Após receber o `taskId` (passo 2), o JavaScript abre uma conexão persistente com o servidor no endpoint `/download/<task_id>/status-stream`, usando a API nativa `EventSource`.
+7.  **Server Push (Flask):** O servidor mantém essa conexão aberta. No backend, essa rota monitora o estado da tarefa no Celery. Assim que uma nova atualização de progresso é detectada, o servidor **envia ("push")** um evento através da conexão SSE diretamente para o navegador do cliente.
+8.  **UI Dinâmica e Instantânea:** O JavaScript, que está "ouvindo" os eventos (`onmessage`), recebe a nova porcentagem e atualiza a barra de progresso na tela imediatamente, proporcionando feedback verdadeiramente em tempo real.
+9.  **Conclusão:** Quando o download termina, o worker atualiza o estado para `SUCCESS`. O servidor envia um evento final de sucesso via SSE. O frontend fecha a conexão e redireciona o usuário para o endpoint de download, que delega a entrega do arquivo para o Nginx.
+
+### De Polling para Server-Sent Events: Um Salto em Eficiência
+
+A mudança mais significativa na arquitetura de comunicação foi a substituição do tradicional **HTTP Polling** por **Server-Sent Events (SSE)** para as atualizações da barra de progresso. Esta decisão trouxe benefícios consideráveis de performance e uso de rede.
+
+#### O Método Anterior: Polling
+
+No modelo de polling, o cliente era responsável por perguntar repetidamente ao servidor sobre o status da tarefa (ex: a cada 1 segundo).
+
+* **Problemas:**
+    * **Sobrecarga de Rede:** Cada "pergunta" era uma requisição HTTP completa, com seus próprios cabeçalhos, gerando tráfego desnecessário. Para 10 clientes ativos, isso significaria 600 requisições por minuto apenas para checar status, muitas das quais retornariam sem nenhuma informação nova.
+    * **Latência:** Havia um atraso inerente. Se o progresso mudasse logo após uma checagem, a UI só seria atualizada na próxima pergunta, um segundo depois. Isso tornava a experiência menos fluida.
+    * **Desperdício de Recursos do Servidor:** O servidor era forçado a processar um grande volume de requisições triviais, consumindo ciclos de CPU e memória que poderiam ser usados para outras tarefas.
+
+#### A Nova Solução: Server-Sent Events (SSE)
+
+Com SSE, a dinâmica se inverte: o servidor informa o cliente quando algo novo acontece.
+
+* **Benefícios de Performance e Rede:**
+    * **Redução Drástica de Overhead:** O cliente estabelece **uma única conexão HTTP** de longa duração. Após o handshake inicial, apenas os dados de atualização são enviados, sem a repetição de cabeçalhos a cada segundo. Isso minimiza o tráfego de rede e o uso de largura de banda.
+    * **Latência Mínima (Real-Time):** As atualizações são empurradas (`pushed`) pelo servidor no momento exato em que ocorrem. Isso elimina o atraso do polling e resulta em uma barra de progresso que se move de forma suave e instantânea, melhorando significativamente a experiência do usuário.
+    * **Eficiência do Servidor:** O servidor gerencia um número menor de conexões persistentes em vez de uma enxurrada de requisições curtas. Isso é muito mais eficiente em termos de recursos, permitindo que a aplicação suporte um número maior de usuários simultâneos com o mesmo hardware.
+
+Essa mudança de polling para SSE é um exemplo claro de como a escolha da tecnologia de comunicação correta pode otimizar drasticamente a performance e a escalabilidade de uma aplicação web.
 
 ### O Desafio do Pareamento de Streams
 
