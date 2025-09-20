@@ -10,6 +10,10 @@ app = Celery('youtube-downloader',
              backend='redis://redis:6379/1')
 
 
+def _format_sse_event(data):
+    return f'data: {json.dumps(data)}\n\n'
+
+
 @app.task(bind=True)
 def download_stream(self, url, video_stream_id, audio_stream_id):
     filename, filesize_bytes, extension = yt.get_download_info(url, video_stream_id, audio_stream_id)
@@ -38,6 +42,9 @@ def get_task_status_stream(task_id):
     task = AsyncResult(task_id, app=app)
     last_percentage = -1
 
+    initial_event = {'state':task.state, 'percentage': 0}
+    yield _format_sse_event(initial_event)
+
     while not task.ready():
         if task.info and isinstance(task.info, dict):
             percentage = task.info.get('percentage', 0)
@@ -46,13 +53,13 @@ def get_task_status_stream(task_id):
                     'state': task.state,
                     'percentage': percentage
                 }
-                yield f'data: {json.dumps(event_data)}\n\n'
+                yield _format_sse_event(event_data)
                 last_percentage = percentage
 
         sleep(0.5)
 
     last_event = {'state': task.state, 'percentage': 100}
-    yield f'data: {json.dumps(last_event)}\n\n'
+    yield _format_sse_event(last_event)
 
 
 def get_filename(task_id):

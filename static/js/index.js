@@ -160,7 +160,7 @@ async function listenForDownloadStatus(taskId) {
                 progressBar.hide();
                 videoCardActions.classList.remove('hidden');
             }, 800);
-        } else {
+        } else if (statusUpdate.state === 'DOWNLOADING') {
             progressBar.setPercentage(statusUpdate.percentage);
         }
     })
