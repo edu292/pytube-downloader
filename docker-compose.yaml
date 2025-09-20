@@ -19,8 +19,6 @@ services:
 
   web:
     <<: *app-base
-    volumes:
-      - "video-storage-vol:/app/media"
     command:
       - "gunicorn"
       - "--worker-class"
