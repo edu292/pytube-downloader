@@ -1,8 +1,9 @@
 import yt_dlp
 import os.path
 
-TEMP_FOLDER = 'temp'
-OUTPUT_TEMPLATE = os.path.join(TEMP_FOLDER, '%(title)s.%(ext)s')
+TEMP_FOLDER = 'media'
+FILENAME_TEMPLATE = '%(title)s.%(ext)s'
+OUTPUT_TEMPLATE = os.path.join(TEMP_FOLDER, FILENAME_TEMPLATE)
 STANDARD_FORMAT_NOTES = {'none', 'low', 'medium', 'high'}
 
 
@@ -93,7 +94,11 @@ def get_video_data(video_url):
 
 
 def get_download_info(url, video_stream_id, audio_stream_id):
-    with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+    ydl_options = {
+        'quiet': True,
+        'restrictfilenames': True
+    }
+    with yt_dlp.YoutubeDL(ydl_options) as ydl:
         info = ydl.extract_info(url, download=False)
 
         total_download_size = 0
@@ -110,7 +115,7 @@ def get_download_info(url, video_stream_id, audio_stream_id):
         else:
             info['ext'] = audio_ext
 
-        filename = ydl.prepare_filename(info, outtmpl=OUTPUT_TEMPLATE)
+        filename = ydl.prepare_filename(info, outtmpl=FILENAME_TEMPLATE)
 
         return filename, total_download_size, info['ext']
 
@@ -126,7 +131,9 @@ def download_stream(url, video_stream_id, audio_stream_id, progress_hook, extens
         'outtmpl': OUTPUT_TEMPLATE,
         'quiet': True,
         'progress_hooks': [progress_hook],
-        'merge_output_format': extension
+        'merge_output_format': extension,
+        'noprogress': True,
+        'restrictfilenames': True
     }
 
     with yt_dlp.YoutubeDL(ydl_options) as ydl:

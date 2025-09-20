@@ -5,16 +5,26 @@ x-base-app: &app-base
     - redis
 
 services:
+  nginx:
+    image: "nginx:1.29.1-alpine"
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - "./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro"
+      - "./static:/app/static:ro"
+      - "video-storage-vol:/app/media"
+    depends_on:
+      - web
+
   web:
     <<: *app-base
-    ports:
-      - "80:8000"
     volumes:
-      - temp-vol:/app/temp
+      - "video-storage-vol:/app/media"
     command:
       - "gunicorn"
-      - "--workers"
-      - "5"
+      - "--worker-class"
+      - "gevent"
       - "--bind"
       - "0.0.0.0:8000"
       - "app:app"
@@ -22,15 +32,18 @@ services:
   worker:
     <<: *app-base
     volumes:
-      - temp-vol:/app/temp
+      - "video-storage-vol:/app/media"
     command:
       - "celery"
-      - "-A"
+      - "--app"
       - "tasks"
       - "worker"
+      - "--pool=gevent"
+      - "--concurrency=100"
+      - "--loglevel=info"
 
   redis:
     image: "redis:8.2.1-alpine"
 
 volumes:
-  temp-vol:
+  video-storage-vol:

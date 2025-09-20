@@ -9,7 +9,7 @@ app = Celery('youtube-downloader',
 
 @app.task(bind=True)
 def download_stream(self, url, video_stream_id, audio_stream_id):
-    filepath, filesize_bytes, extension = yt.get_download_info(url, video_stream_id, audio_stream_id)
+    filename, filesize_bytes, extension = yt.get_download_info(url, video_stream_id, audio_stream_id)
     total_downloaded_bytes = 0
 
     def progress_hook(d):
@@ -28,7 +28,7 @@ def download_stream(self, url, video_stream_id, audio_stream_id):
 
     yt.download_stream(url, video_stream_id, audio_stream_id, progress_hook, extension)
 
-    return filepath
+    return filename
 
 
 def get_download_status(task_id):
@@ -47,7 +47,7 @@ def get_download_status(task_id):
     return response_data
 
 
-def get_filepath(task_id):
+def get_filename(task_id):
     task = AsyncResult(task_id, app=app)
 
     return task.result

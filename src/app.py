@@ -1,11 +1,9 @@
-from flask import Flask, render_template, request, send_file
-from whitenoise import WhiteNoise
+from flask import Flask, render_template, request, Response
 
 import youtube_utils as yt
 import tasks
 
 app = Flask(__name__)
-app.wsgi_app = WhiteNoise(app.wsgi_app, root="static/")
 
 
 @app.route('/')
@@ -39,10 +37,15 @@ def get_download_status(task_id):
 
 @app.route('/download/<task_id>')
 def download_file(task_id):
-    filepath = tasks.get_filepath(task_id)
+    filename = tasks.get_filename(task_id)
 
-    return send_file(filepath, as_attachment=True)
+    response = Response()
 
+    redirect_path = f'/media/{filename}'
+    response.headers['X-Accel-Redirect'] = redirect_path
 
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", debug=True)
+    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    del response.headers['Content-Type']
+
+    return response
