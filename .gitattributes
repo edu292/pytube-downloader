@@ -1,2 +1,2 @@
 /src/templates/** linguist-detectable=false
-/src/static/css/** linguist-detectable=false
+/static/css/** linguist-detectable=false
