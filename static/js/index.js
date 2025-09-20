@@ -129,7 +129,7 @@ confirmDownloadButton.addEventListener('click', function () {
         }
     }
 
-    scheduleWorker(urlEndpoint);
+    scheduleDownload(urlEndpoint);
 });
 
 window.addEventListener('click', function () {
@@ -137,31 +137,31 @@ window.addEventListener('click', function () {
 });
 
 
-async function scheduleWorker(urlEndpoint) {
+async function scheduleDownload(urlEndpoint) {
     const response = await fetch(urlEndpoint);
     const data = await response.json();
     const taskId = data.taskId;
 
-    pollStatus(taskId);
+    listenForDownloadStatus(taskId);
 }
 
 
-async function pollStatus(taskId) {
-    const response = await fetch(`/download/${taskId}/status`);
-    const data = await response.json();
+async function listenForDownloadStatus(taskId) {
+    const downloadStatusStreamEndpoint = `/download/${taskId}/status-stream`;
+    const downloadStatusStream = new EventSource(downloadStatusStreamEndpoint);
 
-    if (data.state === 'SUCCESS') {
-        progressBar.setPercentage(100);
-        window.location.assign(`download/${taskId}`);
-        setTimeout(() => {
-            progressBar.hide();
-            videoCardActions.classList.remove('hidden');
-        }, 800);
-    } else {
-        if (data.state === 'DOWNLOADING') {
-            progressBar.setPercentage(data.percentage);
+    downloadStatusStream.addEventListener('message', (event) => {
+        const statusUpdate = JSON.parse(event.data);
+        if (statusUpdate.state === 'SUCCESS') {
+            progressBar.setPercentage(100);
+            downloadStatusStream.close();
+            window.location.assign(`download/${taskId}`);
+            setTimeout(() => {
+                progressBar.hide();
+                videoCardActions.classList.remove('hidden');
+            }, 800);
+        } else {
+            progressBar.setPercentage(statusUpdate.percentage);
         }
-
-        setTimeout(() => pollStatus(taskId), 1000);
-    }
+    })
 }

@@ -1,6 +1,9 @@
+from time import sleep
+
 from celery import Celery
 from celery.result import AsyncResult
 import youtube_utils as yt
+import json
 
 app = Celery('youtube-downloader',
              broker_url='redis://redis:6379/0',
@@ -31,20 +34,25 @@ def download_stream(self, url, video_stream_id, audio_stream_id):
     return filename
 
 
-def get_download_status(task_id):
+def get_task_status_stream(task_id):
     task = AsyncResult(task_id, app=app)
+    last_percentage = -1
 
-    response_data = {
-        'state': task.state,
-        'percentage': 0
-    }
+    while not task.ready():
+        if task.info and isinstance(task.info, dict):
+            percentage = task.info.get('percentage', 0)
+            if percentage != last_percentage:
+                event_data = {
+                    'state': task.state,
+                    'percentage': percentage
+                }
+                yield f'data: {json.dumps(event_data)}\n\n'
+                last_percentage = percentage
 
-    if task.info and isinstance(task.info, dict):
-        response_data.update({
-            'percentage': task.info.get('percentage', 0)
-        })
+        sleep(0.5)
 
-    return response_data
+    last_event = {'state': task.state, 'percentage': 100}
+    yield f'data: {json.dumps(last_event)}\n\n'
 
 
 def get_filename(task_id):

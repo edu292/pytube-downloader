@@ -28,11 +28,9 @@ def start_download():
     return {'taskId': task.id}
 
 
-@app.route('/download/<task_id>/status')
-def get_download_status(task_id):
-    status = tasks.get_download_status(task_id)
-
-    return status
+@app.route('/download/<task_id>/status-stream')
+def get_download_status_stream(task_id):
+    return Response(tasks.get_task_status_stream(task_id), mimetype='text/event-stream')
 
 
 @app.route('/download/<task_id>')
