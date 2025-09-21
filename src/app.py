@@ -15,7 +15,6 @@ def generate_sse_events(update_stream):
         yield f'data: {data}\n\n'
 
 
-
 @app.route('/')
 def index():
     url = request.args.get('url')

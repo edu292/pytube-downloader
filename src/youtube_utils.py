@@ -113,7 +113,10 @@ def download_stream(url, video_stream_id, audio_stream_id, progress_callback):
         info = ydl.extract_info(url, download=False)
         storage_filepath = f'/{ydl.prepare_filename(info)}'
         user_filename = ydl.prepare_filename(info, outtmpl=USER_FILENAME_TEMPLATE)
-        filesize_bytes = sum(stream['filesize'] for stream in info['requested_formats'])
+        if 'requested_formats' in info:
+            filesize_bytes = sum(stream['filesize'] for stream in info['requested_formats'])
+        else:
+            filesize_bytes = info['filesize']
 
         def progress_hook(d):
             nonlocal total_downloaded_bytes

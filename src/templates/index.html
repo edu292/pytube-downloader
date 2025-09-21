@@ -67,7 +67,7 @@
                                         <ul>
                                             {% for stream in video.streams.audio | reverse %}
                                             <li>
-                                                <button class="button" data-audio-stream-id="{{ stream.id }}"><i class="bi bi-music-note-beamed me-2 text-white-50"></i>{{ stream.abr }}kbps ({{ stream.ext }}) - <span>{{ (stream.filesize / (1024 * 1024)) | round(2) }} MB</span></button>
+                                                <button class="button" data-video-stream-id="" data-audio-stream-id="{{ stream.id }}"><i class="bi bi-music-note-beamed me-2 text-white-50"></i>{{ stream.abr }}kbps ({{ stream.ext }}) - <span>{{ (stream.filesize / (1024 * 1024)) | round(2) }} MB</span></button>
                                             </li>
                                             {% endfor %}
                                         </ul>
