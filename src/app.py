@@ -1,3 +1,6 @@
+from urllib.parse import quote
+
+import unicodedata
 from flask import Flask, render_template, request, Response
 
 import youtube_utils as yt
@@ -35,14 +38,21 @@ def get_download_status_stream(task_id):
 
 @app.route('/download/<task_id>')
 def download_file(task_id):
-    filename = tasks.get_filename(task_id)
+    download_details = tasks.get_download_details(task_id)
+
+    user_filename = download_details['user_filename']
+
+    nfkd_form = unicodedata.normalize('NFKD', user_filename)
+    ascii_filename = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+
+    encoded_filename = quote(user_filename)
 
     response = Response()
+    response.headers['X-Accel-Redirect'] = download_details['storage_filepath']
 
-    redirect_path = f'/media/{filename}'
-    response.headers['X-Accel-Redirect'] = redirect_path
-
-    response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.headers['Content-Disposition'] = (
+        f'attachment; filename="{ascii_filename}"; filename*=UTF-8\'\'{encoded_filename}'
+    )
 
     del response.headers['Content-Type']
 

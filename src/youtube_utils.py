@@ -2,8 +2,9 @@ import yt_dlp
 import os.path
 
 TEMP_FOLDER = 'media'
-FILENAME_TEMPLATE = '%(title)s.%(ext)s'
-OUTPUT_TEMPLATE = os.path.join(TEMP_FOLDER, FILENAME_TEMPLATE)
+USER_FILENAME_TEMPLATE = '%(title)s.%(ext)s'
+STORAGE_FILENAME_TEMPLATE = '%(id)s-%(format_id)s.%(ext)s'
+OUTPUT_TEMPLATE = os.path.join(TEMP_FOLDER, STORAGE_FILENAME_TEMPLATE)
 STANDARD_FORMAT_NOTES = {'none', 'low', 'medium', 'high'}
 
 
@@ -93,48 +94,37 @@ def get_video_data(video_url):
     return video_data
 
 
-def get_download_info(url, video_stream_id, audio_stream_id):
-    ydl_options = {
-        'quiet': True,
-        'restrictfilenames': True
-    }
-    with yt_dlp.YoutubeDL(ydl_options) as ydl:
-        info = ydl.extract_info(url, download=False)
-
-        total_download_size = 0
-        for stream in info['formats']:
-            if stream['format_id'] == video_stream_id:
-                video_ext = stream['ext']
-                total_download_size += stream.get('filesize', 0)
-            elif stream['format_id'] == audio_stream_id:
-                audio_ext = stream['ext']
-                total_download_size += stream.get('filesize', 0)
-
-        if video_stream_id:
-            info['ext'] = video_ext
-        else:
-            info['ext'] = audio_ext
-
-        filename = ydl.prepare_filename(info, outtmpl=FILENAME_TEMPLATE)
-
-        return filename, total_download_size, info['ext']
-
-
-def download_stream(url, video_stream_id, audio_stream_id, progress_hook, extension):
+def download_stream(url, video_stream_id, audio_stream_id, progress_callback):
     if video_stream_id and audio_stream_id:
         format_string = f'{video_stream_id}+{audio_stream_id}'
     else:
-        format_string = audio_stream_id if audio_stream_id is not None else video_stream_id
+        format_string = audio_stream_id or video_stream_id
+
+    total_downloaded_bytes = 0
 
     ydl_options = {
         'format': format_string,
         'outtmpl': OUTPUT_TEMPLATE,
         'quiet': True,
-        'progress_hooks': [progress_hook],
-        'merge_output_format': extension,
-        'noprogress': True,
-        'restrictfilenames': True
+        'noprogress': True
     }
 
     with yt_dlp.YoutubeDL(ydl_options) as ydl:
-        ydl.download([url])
+        info = ydl.extract_info(url, download=False)
+        storage_filepath = f'/{ydl.prepare_filename(info)}'
+        user_filename = ydl.prepare_filename(info, outtmpl=USER_FILENAME_TEMPLATE)
+        filesize_bytes = sum(stream['filesize'] for stream in info['requested_formats'])
+
+        def progress_hook(d):
+            nonlocal total_downloaded_bytes
+            status = d['status']
+            if status == 'finished':
+                total_downloaded_bytes += d['downloaded_bytes']
+            else:
+                download_percentage = ((total_downloaded_bytes + d['downloaded_bytes']) / filesize_bytes) * 100
+                progress_callback(download_percentage)
+
+        ydl.add_progress_hook(progress_hook)
+        ydl.process_info(info)
+
+    return storage_filepath, user_filename

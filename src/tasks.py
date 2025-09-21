@@ -16,26 +16,15 @@ def _format_sse_event(data):
 
 @app.task(bind=True)
 def download_stream(self, url, video_stream_id, audio_stream_id):
-    filename, filesize_bytes, extension = yt.get_download_info(url, video_stream_id, audio_stream_id)
-    total_downloaded_bytes = 0
+    def progress_hook(percentage):
+        self.update_state(
+            state='DOWNLOADING',
+            meta={'percentage': percentage}
+        )
 
-    def progress_hook(d):
-        status = d['status']
-        nonlocal total_downloaded_bytes
-        if status == 'finished':
-            total_downloaded_bytes += d['downloaded_bytes']
+    storage_filepath, user_filename = yt.download_stream(url, video_stream_id, audio_stream_id, progress_hook)
 
-        else:
-            self.update_state(
-                state='DOWNLOADING',
-                meta={
-                    'percentage': ((total_downloaded_bytes + d['downloaded_bytes']) / filesize_bytes) * 100
-                }
-            )
-
-    yt.download_stream(url, video_stream_id, audio_stream_id, progress_hook, extension)
-
-    return filename
+    return {'storage_filepath': storage_filepath, 'user_filename': user_filename}
 
 
 def get_task_status_stream(task_id):
@@ -62,7 +51,7 @@ def get_task_status_stream(task_id):
     yield _format_sse_event(last_event)
 
 
-def get_filename(task_id):
+def get_download_details(task_id):
     task = AsyncResult(task_id, app=app)
 
     return task.result
