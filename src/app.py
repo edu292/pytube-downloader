@@ -1,7 +1,6 @@
-from urllib.parse import quote
-
-import unicodedata
 from flask import Flask, render_template, request, Response
+from urllib.parse import quote
+from unidecode import unidecode
 
 import youtube_utils as yt
 import tasks
@@ -42,8 +41,7 @@ def download_file(task_id):
 
     user_filename = download_details['user_filename']
 
-    nfkd_form = unicodedata.normalize('NFKD', user_filename)
-    ascii_filename = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+    ascii_filename = unidecode(user_filename)
 
     encoded_filename = quote(user_filename)
 
