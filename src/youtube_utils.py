@@ -122,7 +122,7 @@ def download_stream(url, video_stream_id, audio_stream_id, progress_callback):
                 total_downloaded_bytes += d['downloaded_bytes']
             else:
                 download_percentage = ((total_downloaded_bytes + d['downloaded_bytes']) / filesize_bytes) * 100
-                progress_callback(download_percentage)
+                progress_callback(round(download_percentage, 2))
 
         ydl.add_progress_hook(progress_hook)
         ydl.process_info(info)

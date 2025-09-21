@@ -74,17 +74,14 @@ const progressBar = new ProgressBar(
 const videoCardActions = document.getElementById('video-card-actions')
 const confirmDownloadButton = document.getElementById('confirm-download');
 
-const urlParams = new URLSearchParams(window.location.search);
-const videoUrl = urlParams.get('url');
-
 dropdownMenu.button.addEventListener('click', (evt) => {
     dropdownMenu.body.classList.toggle('hidden');
     evt.stopPropagation();
 });
 
 dropdownMenu.tabs.addEventListener('click', (evt) => {
-    let clickedButton = evt.target;
-    let selectedPane = document.getElementById(clickedButton.dataset.target);
+    const clickedButton = evt.target;
+    const selectedPane = document.getElementById(clickedButton.dataset.target);
 
     dropdownMenu.tabButtons.forEach(button => {
         button.classList.remove('active');
@@ -104,8 +101,6 @@ dropdownMenu.pane.addEventListener('click', (evt) => {
     dropdownMenu.button.textContent = selectedStreamButton.innerText;
 
     confirmDownloadButton.removeAttribute('disabled');
-    confirmDownloadButton.classList.add('button');
-    confirmDownloadButton.classList.add('button--secondary');
 
     confirmDownloadButton.dataset.videoStreamId = selectedStreamButton.dataset.videoStreamId;
     confirmDownloadButton.dataset.audioStreamId = selectedStreamButton.dataset.audioStreamId;
@@ -114,22 +109,10 @@ dropdownMenu.pane.addEventListener('click', (evt) => {
 confirmDownloadButton.addEventListener('click', function () {
     progressBar.show();
     videoCardActions.classList.add('hidden');
+    const videoStreamId = confirmDownloadButton.dataset.videoStreamId
+    const audioStreamId = confirmDownloadButton.dataset.audioStreamId
 
-    const urlEndpoint = new URL('/download', window.location.origin);
-    urlEndpoint.searchParams.append('url', videoUrl);
-
-    const optionalParams = {
-        'video-stream-id': confirmDownloadButton.dataset.videoStreamId,
-        'audio-stream-id': confirmDownloadButton.dataset.audioStreamId,
-    };
-
-    for (const [key, value] of Object.entries(optionalParams)) {
-        if (value && value !== 'null') {
-            urlEndpoint.searchParams.append(key, value);
-        }
-    }
-
-    scheduleDownload(urlEndpoint);
+    startDownload(videoStreamId, audioStreamId);
 });
 
 window.addEventListener('click', function () {
@@ -137,8 +120,23 @@ window.addEventListener('click', function () {
 });
 
 
-async function scheduleDownload(urlEndpoint) {
-    const response = await fetch(urlEndpoint);
+async function startDownload(videoStreamId, audioStreamId) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const videoUrl = urlParams.get('url');
+    const requestBody = {
+        url: videoUrl,
+        videoStreamId: videoStreamId === '' ? undefined : videoStreamId,
+        audioStreamId: audioStreamId === '' ? undefined : audioStreamId
+    }
+
+    const response = await fetch('/download', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+    });
+
     const data = await response.json();
     const taskId = data.taskId;
 
@@ -160,7 +158,7 @@ async function listenForDownloadStatus(taskId) {
                 progressBar.hide();
                 videoCardActions.classList.remove('hidden');
             }, 800);
-        } else if (statusUpdate.state === 'DOWNLOADING') {
+        } else if (statusUpdate.state === 'PROGRESS') {
             progressBar.setPercentage(statusUpdate.percentage);
         }
     })
