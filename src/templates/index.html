@@ -30,16 +30,16 @@
             </form>
         </header>
 
-        {% if video %}
+        {% if video_data %}
         <main class="page-content panel glass-container">
             <article class="video-card">
                 <section class="video-card__thumbnail">
-                    <img src="{{ video.thumbnail_url }}"
+                    <img src="{{ video_data.thumbnail_url }}"
                          onerror="this.src='https://placehold.co/400x225/cccccc/ffffff?text=Error';"
                          alt="Video Thumbnail" class="video-thumbnail">
                 </section>
                 <section class="video-card__body">
-                    <h2>{{ video.title }}</h2>
+                    <h2>{{ video_data.title }}</h2>
                     <div class="video-card__actions" id="video-card-actions">
                         <div class="video-card__streams-dropdown dropdown-menu">
                             <button class="dropdown-menu__button button video-card__actions-button" id="streams-dropdown-button">
@@ -54,7 +54,7 @@
                                 <div class="dropdown-menu__pane" id="streams-dropdown-pane">
                                     <div class="dropdown-menu__pane-content" id="video-pane">
                                         <ul>
-                                            {% for stream in video.streams.video | reverse %}
+                                            {% for stream in video_data.streams.video | reverse %}
                                             <li>
                                                 <button class="button" data-video-stream-id="{{ stream.id }}" data-audio-stream-id="{{ stream.audio_stream_id }}" data-stream-type="video">
                                                     <i class="bi-camera-reels-fill"></i>
@@ -65,7 +65,7 @@
                                     </div>
                                     <div class="dropdown-menu__pane-content hidden" id="audio-pane">
                                         <ul>
-                                            {% for stream in video.streams.audio | reverse %}
+                                            {% for stream in video_data.streams.audio | reverse %}
                                             <li>
                                                 <button class="button" data-video-stream-id="" data-audio-stream-id="{{ stream.id }}"><i class="bi bi-music-note-beamed me-2 text-white-50"></i>{{ stream.abr }}kbps ({{ stream.ext }}) - <span>{{ (stream.filesize / (1024 * 1024)) | round(2) }} MB</span></button>
                                             </li>

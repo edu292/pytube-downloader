@@ -1,16 +1,18 @@
+import os
 from time import sleep
 
 from celery import Celery
 from celery.result import AsyncResult
 import youtube_utils as yt
 
+REDIS_URL = os.getenv('REDIS_URL')
 app = Celery('youtube-downloader',
-             broker_url='redis://redis:6379/0',
-             backend='redis://redis:6379/1')
+             broker_url=f'{REDIS_URL}/0',
+             backend=f'{REDIS_URL}/1')
 
 
 @app.task(bind=True)
-def download_stream(self, url, video_stream_id, audio_stream_id):
+def _download_stream(self, url, video_stream_id, audio_stream_id):
     def progress_hook(percentage):
         self.update_state(
             state='PROGRESS',
@@ -20,6 +22,10 @@ def download_stream(self, url, video_stream_id, audio_stream_id):
     storage_filepath, user_filename = yt.download_stream(url, video_stream_id, audio_stream_id, progress_hook)
 
     return {'storage_filepath': storage_filepath, 'user_filename': user_filename}
+
+
+def download_stream(url, video_stream_id, audio_stream_id):
+    return _download_stream.delay(url, video_stream_id, audio_stream_id)
 
 
 def stream_task_updates(task_id):

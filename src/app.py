@@ -15,7 +15,7 @@ def generate_sse_events(update_stream):
         yield f'data: {data}\n\n'
 
 
-@app.route('/')
+@app.route('/', methods=['GET'])
 def index():
     url = request.args.get('url')
     if url is not None:
@@ -23,7 +23,7 @@ def index():
     else:
         video_data = None
 
-    return render_template('index.html', video=video_data)
+    return render_template('index.html', video_data=video_data)
 
 
 @app.route('/download/', methods=['POST'])
@@ -34,14 +34,14 @@ def start_download():
     audio_stream_id = data.get('audioStreamId')
 
     if not url or not audio_stream_id:
-        return {'error', 'Missing required attribute'}, 400
+        return {'error', 'Missing required attribute'}
 
-    task = tasks.download_stream.delay(data['url'], video_stream_id, audio_stream_id)
+    task = tasks.download_stream(url, video_stream_id, audio_stream_id)
 
     return {'taskId': task.id}
 
 
-@app.route('/download/<task_id>/status-stream')
+@app.route('/download/<task_id>/status-stream', methods=['GET'])
 def stream_download_status(task_id):
     task_updates = tasks.stream_task_updates(task_id)
     sse_events_stream = generate_sse_events(task_updates)
@@ -49,7 +49,7 @@ def stream_download_status(task_id):
     return Response(sse_events_stream, mimetype='text/event-stream')
 
 
-@app.route('/download/<task_id>')
+@app.route('/download/<task_id>', methods=['GET'])
 def download_file(task_id):
     download_details = tasks.get_download_details(task_id)
     user_filename = download_details['user_filename']

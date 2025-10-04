@@ -1,6 +1,8 @@
 x-base-app: &app-base
   build: .
   restart: unless-stopped
+  environment:
+    REDIS_URL: "redis://redis:6379"
   depends_on:
     - redis
 
