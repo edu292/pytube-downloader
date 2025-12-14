@@ -1,10 +1,13 @@
-FROM python:3.13-slim
+FROM python:3.14.2-slim
 
 ENV PYTHONUNBUFFERED=1
+ENV DENO_INSTALL=/
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y ffmpeg && apt-get clean
+RUN apt-get update && apt-get install -y ffmpeg curl unzip && apt-get clean
+
+RUN curl -fsSL https://deno.land/install.sh | sh
 
 COPY requirements.txt .
 
