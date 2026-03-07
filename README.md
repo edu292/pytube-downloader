@@ -98,8 +98,9 @@ Este projeto não é apenas um protótipo; ele é construído sobre uma base só
     * `nginx`: Um container que atua como reverse proxy, servindo arquivos estáticos e os vídeos finais de forma otimizada. 
     * `web`: Um container para a aplicação Flask, servida por um servidor WSGI robusto (Gunicorn).
     * `worker`: Um container dedicado para o Celery, que pode ser escalado de forma independente para lidar com mais downloads simultâneos.
-    * `redis`: Um container para o broker de mensagens e backend de resultados.  
-    Isso garante que o ambiente de desenvolvimento seja idêntico ao de produção, eliminando o clássico "mas na minha máquina funciona".
+    * `redis`: Um container para o broker de mensagens e backend de resultados.
+
+  Isso garante que o ambiente de desenvolvimento seja idêntico ao de produção, eliminando o clássico "mas na minha máquina funciona".
 
   * **Nginx: A Porta de Entrada Otimizada**   
     O **Nginx** atua como o servidor web de borda, gerenciando todo o tráfego de entrada. Ele é extremamente eficiente para duas tarefas cruciais que liberam nossa aplicação Python:
@@ -126,7 +127,7 @@ A escolha do tipo de *worker* é fundamental para a performance. Este projeto ut
 
 | Frontend                  | Backend     | DevOps & Infraestrutura    |
 |:--------------------------|:------------|:---------------------------|
-| HTML5                     | Python 3.13 | Docker & Docker Compose    |
+| HTML5                     | Python 3.14 | Docker & Docker Compose    |
 | CSS3 (Vanilla)            | Flask       | Nginx (Reverse Proxy)      |
 | JavaScript (Vanilla)      | Celery      | Gunicorn (WSGI Server)     |
 | Glassmorphism (UI Design) | yt-dlp      | Redis                      |
