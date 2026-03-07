@@ -71,25 +71,6 @@ Com SSE, a dinâmica se inverte: o servidor informa o cliente quando algo novo a
 
 Essa mudança de polling para SSE é um exemplo claro de como a escolha da tecnologia de comunicação correta pode otimizar drasticamente a performance e a escalabilidade de uma aplicação web.
 
-### O Desafio do Pareamento de Streams
-
-Um desafio técnico significativo do projeto é traduzir a enorme quantidade de formatos brutos que o YouTube oferece em uma lista de opções simples e funcionais para o usuário.
-
-* **O Problema:** Para qualquer vídeo em alta qualidade, o YouTube não oferece um arquivo único com vídeo e áudio. Em vez disso, ele disponibiliza dezenas de *streams* separadas: múltiplos arquivos apenas de vídeo (em codecs como `VP9` dentro de um container `.webm`, ou `AVC1` em `.mp4`) e múltiplos arquivos apenas de áudio (em codecs como `Opus` ou `AAC`).
-
-* **A Complexidade:** O desafio é duplo:
-
-  1.  **Filtragem:** Além de somente opções de video e audio o Youtube ainda oferece múltiplos outros tipos de arquivo como storyboards e de metadados do vídeo.
-  2.  **Compatibilidade:** Nem todo codec de vídeo pode ser combinado com qualquer codec de áudio. Tentar mesclar, por exemplo, um vídeo `.webm` com um áudio `.m4a` (AAC) pode causar erros no `ffmpeg`.
-
-* **A Solução (`youtube_utils.py`):** Foi implementado um algoritmo customizado que:
-
-  1.  Separa e filtra as listas de vídeo e áudio, ordenando-as por qualidade.
-  2.  Executa uma lógica de pareamento inteligente, que escalona o pareamento das *streams* de vídeo e audio baseado na sua qualidade e compatibilidade. De forma que a resolução do video, qualidade do audio e tamanho dos arquivos sejam coerentes com o que o usuário selecionar.
-  3.  Calcula o tamanho final combinado do arquivo para informar ao usuário.
-
-Isso abstrai toda a complexidade, transformando uma lista de mais de 50 opções técnicas confusas em um menu de seleção claro e funcional, como "1080p" ou "720p".
-
 ### Pronto para Produção: Docker & Nginx
 
 Este projeto não é apenas um protótipo; ele é construído sobre uma base sólida para implantação em produção.
@@ -108,7 +89,7 @@ Este projeto não é apenas um protótipo; ele é construído sobre uma base só
     1.  **Servir Arquivos Estáticos:** Nginx entrega os arquivos CSS e JavaScript diretamente do sistema de arquivos, uma tarefa para a qual ele é altamente otimizado, evitando que requisições simples cheguem ao Gunicorn.
     2.  **Download Eficiente com `X-Accel-Redirect`:** Em vez de usar a aplicação Flask para enviar o arquivo de vídeo final ao usuário (um processo **bloqueante** e ineficiente conhecido como `send_file`), nós delegamos essa tarefa ao Nginx. O Flask simplesmente valida a requisição e retorna uma resposta com um header especial (`X-Accel-Redirect`) contendo um caminho interno para o arquivo. O Nginx intercepta esse header e assume a responsabilidade de enviar o arquivo ao usuário. Isso libera o worker do Gunicorn **instantaneamente**, permitindo que ele atenda outras requisições, tornando a aplicação muito mais escalável e responsiva.
 
-#### Otimização de Concorrência com Gevent
+### Otimização de Concorrência com Gevent
 
 A escolha do tipo de *worker* é fundamental para a performance. Este projeto utiliza workers `gevent` tanto para o Gunicorn quanto para o Celery, pois a maior parte do trabalho é **I/O-bound** (limitada por operações de entrada/saída), não por CPU.
 
@@ -119,9 +100,47 @@ A escolha do tipo de *worker* é fundamental para a performance. Este projeto ut
     É aqui que `gevent` demonstra seu poder de forma mais impactante. O worker do Celery executa as tarefas de download, que consistem em duas operações de I/O longas e bloqueantes:
     1.  **Download das Streams (`yt-dlp`):** Uma operação de rede intensiva que pode levar minutos.
     2.  **Mesclagem com `ffmpeg`:** Um subprocesso externo que realiza operações de disco.
-    
+
     Um worker tradicional ficaria ocioso durante todo esse tempo. O worker Celery com `gevent` utiliza um *pool* de corrotinas (*greenlets*). Quando uma tarefa de download inicia uma operação de I/O (esperando um chunk da rede ou o `ffmpeg` processar um arquivo), ela **cede o controle**, permitindo que o worker comece ou continue outra tarefa de download no mesmo processo. Isso permite que um único worker Celery gerencie **dezenas de downloads e processamentos concorrentes**, maximizando o uso de recursos e o throughput do sistema de forma drástica.
------
+
+----
+
+## 🧩 Desafios de Integração com Youtube
+
+### Pareamento de Streams de Vídeo e Áudio
+
+Um desafio técnico significativo do projeto é traduzir a enorme quantidade de formatos brutos que o YouTube oferece em uma lista de opções simples e funcionais para o usuário.
+
+* **O Problema:** Para qualquer vídeo em alta qualidade, o YouTube não oferece um arquivo único com vídeo e áudio. Em vez disso, ele disponibiliza dezenas de *streams* separadas: múltiplos arquivos apenas de vídeo (em codecs como `VP9` dentro de um container `.webm`, ou `AVC1` em `.mp4`) e múltiplos arquivos apenas de áudio (em codecs como `Opus` ou `AAC`).
+
+* **A Complexidade:** O desafio é duplo:
+
+  1.  **Filtragem:** Além de somente opções de video e audio o Youtube ainda oferece múltiplos outros tipos de arquivo como storyboards e de metadados do vídeo.
+  2.  **Compatibilidade:** Nem todo codec de vídeo pode ser combinado com qualquer codec de áudio. Tentar mesclar, por exemplo, um vídeo `.webm` com um áudio `.m4a` (AAC) pode causar erros no `ffmpeg`.
+
+* **A Solução (`youtube_utils.py`):** Foi implementado um algoritmo customizado que:
+
+  1.  Separa e filtra as listas de vídeo e áudio, ordenando-as por qualidade.
+  2.  Executa uma lógica de pareamento inteligente, que escalona o pareamento das *streams* de vídeo e audio baseado na sua qualidade e compatibilidade. De forma que a resolução do video, qualidade do audio e tamanho dos arquivos sejam coerentes com o que o usuário selecionar.
+  3.  Calcula o tamanho final combinado do arquivo para informar ao usuário.
+
+Isso abstrai toda a complexidade, transformando uma lista de mais de 50 opções técnicas confusas em um menu de seleção claro e funcional, como "1080p" ou "720p".
+
+### O Jogo de Gato e Rato: Bypass de Verificação
+
+Manter um downloader funcional requer adaptação constante às mudanças na plataforma original. Recentemente, o YouTube intensificou suas medidas anti-bot e de verificação de clientes (como a exigência de *PO Tokens* e desafios de assinatura complexos).
+
+**O Problema:** O `yt-dlp`, sendo uma ferramenta puramente em Python, começou a ser bloqueado por não conseguir resolver nativamente os desafios JavaScript que o player do YouTube envia para verificar se o cliente é um navegador real.
+
+**A Solução de Infraestrutura:** Para contornar isso e garantir a estabilidade dos downloads, a arquitetura do projeto foi adaptada.
+
+* **Integração de um JS Runtime:** A imagem Docker do projeto foi modificada para incluir o **Deno**.
+* **Por que Deno?** Escolhemos o Deno em vez do Node.js por ser o runtime recomendado pelos desenvolvedores to yt-dlp justamente para resolver essa questão. Essa escolha se deve ao fato de ele ser muito mais leve e eficiente do que carregar um ambiente node completo.
+* **O Fluxo Atualizado:** Agora, quando o `yt-dlp` encontra um desafio de verificação, ele delega a execução do script para o Deno "por baixo dos panos", extrai a assinatura correta e prossegue com o download de forma transparente.
+
+Essa decisão reflete a realidade de aplicações em produção que dependem de serviços de terceiros: a infraestrutura precisa ser flexível o suficiente para incorporar novas ferramentas rapidamente quando as regras do jogo mudam.
+
+----
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -154,7 +173,7 @@ A escolha do tipo de *worker* é fundamental para a performance. Este projeto ut
 2.  **Suba os containers:**
 
     ```bash
-    docker compose up -d --build
+    docker compose up -d
     ```
     Isso iniciará:
     * O serviço `nginx` (Reverse Proxy) na porta `80`.
