@@ -80,10 +80,10 @@ Este projeto não é apenas um protótipo; ele é construído sobre uma base só
     * `web`: Um container para a aplicação Flask, servida por um servidor WSGI robusto (Gunicorn).
     * `worker`: Um container dedicado para o Celery, que pode ser escalado de forma independente para lidar com mais downloads simultâneos.
     * `redis`: Um container para o broker de mensagens e backend de resultados.
-      
+
     Isso garante que o ambiente de desenvolvimento seja idêntico ao de produção, eliminando o clássico "mas na minha máquina funciona".
 
-  * **Nginx: A Porta de Entrada Otimizada**   
+  * **Nginx: A Porta de Entrada Otimizada**
     O **Nginx** atua como o servidor web de borda, gerenciando todo o tráfego de entrada. Ele é extremamente eficiente para duas tarefas cruciais que liberam nossa aplicação Python:
 
     1.  **Servir Arquivos Estáticos:** Nginx entrega os arquivos CSS e JavaScript diretamente do sistema de arquivos, uma tarefa para a qual ele é altamente otimizado, evitando que requisições simples cheguem ao Gunicorn.
